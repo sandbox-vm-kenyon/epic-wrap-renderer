@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epic-wrap + Long-Description Renderer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #94a3b8;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Live editor ───────────────────────────────────────── */
+    .editor-panel {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .editor-panel label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    .editor-panel .field {
+      flex: 1;
+    }
+
+    .editor-panel input,
+    .editor-panel textarea {
+      width: 100%;
+      background: #1e2330;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.875rem;
+      padding: 8px 10px;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .editor-panel textarea { min-height: 90px; }
+    .editor-panel input:focus,
+    .editor-panel textarea:focus { outline: none; border-color: #4f46e5; }
+
+    .width-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    .width-control input[type=range] {
+      accent-color: #4f46e5;
+      width: 200px;
+    }
+
+    /* ── Card ──────────────────────────────────────────────── */
+    .card-viewport {
+      resize: horizontal;
+      overflow: auto;
+      min-width: 200px;
+      max-width: 900px;
+      border: 1px dashed #2d3748;
+      border-radius: 8px;
+      padding: 2px;
+    }
+
+    .epic-card {
+      background: #1e2330;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .epic-card__header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    .epic-badge {
+      flex-shrink: 0;
+      background: #4f46e5;
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-top: 2px;
+    }
+
+    .epic-card__title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: #e2e8f0;
+      /* Epic-wrap: break long words, allow wrap */
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;   /* honour newlines in title */
+    }
+
+    .epic-card__body {
+      padding: 12px 16px 16px;
+    }
+
+    .description-block {
+      font-size: 0.85rem;
+      line-height: 1.65;
+      color: #94a3b8;
+      /* Long-description wrap behaviour */
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .description-block.truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: var(--clamp, 4);
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: normal;  /* clamp doesn't work with pre-wrap */
+    }
+
+    .expand-btn {
+      background: none;
+      border: none;
+      color: #4f46e5;
+      font-size: 0.78rem;
+      cursor: pointer;
+      padding: 4px 0;
+      display: block;
+      margin-top: 6px;
+    }
+
+    .expand-btn:hover { text-decoration: underline; }
+
+    /* ── Metrics bar ───────────────────────────────────────── */
+    .metrics {
+      display: flex;
+      gap: 20px;
+      padding: 8px 16px;
+      background: #161b27;
+      border-top: 1px solid #2d3748;
+      font-size: 0.7rem;
+      color: #475569;
+    }
+
+    .metrics span { font-weight: 600; color: #94a3b8; }
+
+    /* ── Section label ─────────────────────────────────────── */
+    .section-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .divider { border: none; border-top: 1px solid #1e2330; margin: 28px 0; }
+
+    /* ── Test cases ────────────────────────────────────────── */
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Epic-wrap + Long-Description Renderer — Live Test</h1>
+
+<!-- ── Live editor ── -->
+<div class="editor-panel">
+  <div class="field">
+    <label>Epic title</label>
+    <input id="liveTitle" type="text"
+      value="Implement real-time collaborative editing for the long-form document workspace with multi-cursor support and conflict resolution" />
+  </div>
+  <div class="field">
+    <label>Long description</label>
+    <textarea id="liveDesc">This epic covers the full end-to-end implementation of real-time collaboration features across the document workspace. It includes operational-transform (OT) or CRDT-based conflict resolution, WebSocket infrastructure, presence indicators, multi-cursor rendering, inline comment threads, and revision history with named checkpoints.
+
+Dependencies: auth service (for identity tokens), storage service (for snapshot persistence), and the new notification pipeline. Expected rollout: gradual behind a feature flag, beginning with internal dogfooding.</textarea>
+  </div>
+</div>
+
+<div class="width-control">
+  <label>Card width</label>
+  <input type="range" id="widthSlider" min="200" max="860" value="520"
+    oninput="document.getElementById('cardViewport').style.width = this.value + 'px'; document.getElementById('widthVal').textContent = this.value + 'px'" />
+  <span id="widthVal">520px</span>
+  <label style="margin-left:16px">Clamp lines</label>
+  <input type="range" id="clampSlider" min="1" max="12" value="4"
+    oninput="updateClamp(this.value)" />
+  <span id="clampVal">4</span>
+</div>
+
+<div class="section-label">Live preview</div>
+
+<div class="card-viewport" id="cardViewport" style="width:520px">
+  <div class="epic-card" id="liveCard">
+    <div class="epic-card__header">
+      <span class="epic-badge">Epic</span>
+      <div class="epic-card__title" id="liveTitleEl"></div>
+    </div>
+    <div class="epic-card__body">
+      <div class="description-block truncated" id="liveDescEl" style="--clamp:4"></div>
+      <button class="expand-btn" id="expandBtn" onclick="toggleExpand()">Show more</button>
+    </div>
+    <div class="metrics">
+      Title chars: <span id="metTitle">0</span>
+      &nbsp;·&nbsp; Desc chars: <span id="metDesc">0</span>
+      &nbsp;·&nbsp; Desc words: <span id="metWords">0</span>
+      &nbsp;·&nbsp; Lines (est): <span id="metLines">0</span>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── Preset test cases ── -->
+<div class="section-label">Preset test cases</div>
+<div class="test-grid" id="testGrid"></div>
+
+<script>
+  /* ── Live editor wiring ── */
+  const liveTitle = document.getElementById('liveTitle');
+  const liveDesc  = document.getElementById('liveDesc');
+  const liveTitleEl = document.getElementById('liveTitleEl');
+  const liveDescEl  = document.getElementById('liveDescEl');
+  const expandBtn   = document.getElementById('expandBtn');
+  const metTitle    = document.getElementById('metTitle');
+  const metDesc     = document.getElementById('metDesc');
+  const metWords    = document.getElementById('metWords');
+  const metLines    = document.getElementById('metLines');
+
+  let expanded = false;
+
+  function updateLive() {
+    const t = liveTitle.value;
+    const d = liveDesc.value;
+    liveTitleEl.textContent = t;
+    liveDescEl.textContent  = d;
+    metTitle.textContent  = t.length;
+    metDesc.textContent   = d.length;
+    metWords.textContent  = d.trim() ? d.trim().split(/\s+/).length : 0;
+    // Rough line estimate: chars / ~60 chars-per-line
+    metLines.textContent  = Math.ceil(d.length / 60);
+  }
+
+  function toggleExpand() {
+    expanded = !expanded;
+    liveDescEl.classList.toggle('truncated', !expanded);
+    expandBtn.textContent = expanded ? 'Show less' : 'Show more';
+  }
+
+  function updateClamp(v) {
+    document.getElementById('clampVal').textContent = v;
+    liveDescEl.style.setProperty('--clamp', v);
+  }
+
+  liveTitle.addEventListener('input', updateLive);
+  liveDesc.addEventListener('input',  updateLive);
+  updateLive();
+
+  /* ── Preset test cases ── */
+  const cases = [
+    {
+      label: "Short title + short desc",
+      title: "Fix login button",
+      desc: "The login button on mobile is misaligned at 375px viewport width.",
+    },
+    {
+      label: "Long title (no spaces)",
+      title: "Implement_the_new_authentication_flow_for_SSO_with_SAML_and_OIDC_support_in_the_enterprise_tier",
+      desc: "Single long token title to test overflow-wrap: anywhere behaviour.",
+    },
+    {
+      label: "Title with wrap points",
+      title: "Migrate all legacy PHP 5.x endpoints to the new Node.js service layer with backwards-compatible JSON contracts",
+      desc: "Covers all 47 endpoints listed in the migration spreadsheet. Each endpoint requires a new integration test and a feature flag.",
+    },
+    {
+      label: "Very long description",
+      title: "Platform observability overhaul",
+      desc: `This epic encompasses the full replacement of our current ad-hoc logging and metrics setup with a structured observability platform built on OpenTelemetry, Prometheus, and Grafana.
+
+Scope includes:
+- Instrumentation of all core services (auth, ingestion, processing, delivery)
+- Distributed trace propagation across async message boundaries (Kafka, SQS)
+- SLO/SLI definitions for each service, with automated alerting via PagerDuty
+- Runbook automation for the five most common on-call scenarios
+- Dashboards: per-service RED metrics, infrastructure utilisation, and end-to-end latency percentiles (p50, p95, p99)
+
+Out of scope: legacy monolith services scheduled for deprecation in Q4. Estimated effort: 8 sprints across the platform and SRE guilds.`,
+    },
+    {
+      label: "Emoji + RTL-adjacent chars",
+      title: "🚀 Launch new onboarding flow (v3) — 2026 redesign",
+      desc: "Redesigned onboarding with animated step cards, progress persistence, and skip-to-end option. A/B test against control group. Target: +12% activation rate.",
+    },
+    {
+      label: "Single very long word in desc",
+      title: "Token rendering edge case",
+      desc: "Desc contains a URL: https://www.example.com/very/long/path/that/exceeds/typical/column/widths/and/should/wrap/gracefully/without/overflow and continues normally.",
+    },
+  ];
+
+  const grid = document.getElementById('testGrid');
+
+  cases.forEach(({ label, title, desc }) => {
+    const card = document.createElement('div');
+    card.className = 'epic-card';
+    card.innerHTML = `
+      <div class="epic-card__header">
+        <span class="epic-badge">Epic</span>
+        <div class="epic-card__title">${esc(title)}</div>
+      </div>
+      <div class="epic-card__body">
+        <div class="description-block truncated" style="--clamp:3">${esc(desc)}</div>
+        <button class="expand-btn" onclick="toggleCard(this)">Show more</button>
+      </div>
+      <div class="metrics">
+        <span style="color:#475569;font-weight:400">${esc(label)}</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  function toggleCard(btn) {
+    const block = btn.previousElementSibling;
+    const open = block.classList.toggle('truncated');
+    btn.textContent = open ? 'Show more' : 'Show less';
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
